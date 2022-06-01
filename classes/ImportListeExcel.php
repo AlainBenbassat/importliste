@@ -24,6 +24,9 @@ class ImportListeExcel {
       'lieu-dit' => 'supplemental_address_3',
       'code postal' => 'postal_code',
       'commune' => 'city',
+      'PORTABLE' => 'mobile_phone',
+      'FIXE' => 'home_phone',
+      'MAIL' => 'email',
     ];
   }
 
@@ -41,7 +44,11 @@ class ImportListeExcel {
   private function importLines() {
     while (!empty($this->getCellValue(1, $this->currentRow))) {
       $contactId = $this->importLineContactData();
-      //$this->importLineAddressData($contactId);
+
+      $this->importLineAddressData($contactId);
+      $this->importLineMobilePhoneData($contactId);
+      $this->importLineHomePhoneData($contactId);
+      $this->importLineEmailData($contactId);
 
       $this->currentRow++;
     }
@@ -52,10 +59,39 @@ class ImportListeExcel {
     return ImportListeContact::create($contactParams);
   }
 
+  private function importLineAddressData($contactId) {
+    $addressParams = $this->currentRowGetAddressParams($contactId);
+    if ($addressParams) {
+      ImportListeContact::createAddress($addressParams);
+    }
+  }
+
+  private function importLineMobilePhoneData($contactId) {
+    $phoneParams = $this->currentRowGetMobilePhoneParams($contactId);
+    if ($phoneParams) {
+      ImportListeContact::createPhone($phoneParams);
+    }
+  }
+
+  private function importLineHomePhoneData($contactId) {
+    $phoneParams = $this->currentRowGetHomePhoneParams($contactId);
+    if ($phoneParams) {
+      ImportListeContact::createPhone($phoneParams);
+    }
+  }
+
+  private function importLineEmailData($contactId) {
+    $emailParams = $this->currentRowGetEmailParams($contactId);
+    if ($emailParams) {
+      ImportListeContact::createEmail($emailParams);
+    }
+  }
+
   private function currentRowGetContactParams() {
     $params = [];
 
     $params['contact_type'] = 'Individual';
+    $params['sequential'] = 1;
     $params['source'] = $this->getCellValue($this->colNum['source'], $this->currentRow);
     $params['first_name'] = $this->getCellValue($this->colNum['first_name'], $this->currentRow);
     $params['last_name'] = $this->getCellValue($this->colNum['last_name'], $this->currentRow);
@@ -70,6 +106,128 @@ class ImportListeExcel {
     if ($gender) {
       $params['gender'] = $this->convertGenderToGenderId($gender);
     }
+
+    return $params;
+  }
+
+  private function currentRowGetAddressParams($contactId) {
+    $params = [];
+
+    $params['contact_id'] = $contactId;
+    $params['location_type_id'] = 1;
+    $params['sequential'] = 1;
+
+    $streetNumber = $this->getCellValue($this->colNum['street_number'], $this->currentRow);
+    $streetName = $this->getCellValue($this->colNum['street_name'], $this->currentRow);
+
+    if ($streetNumber && $streetName) {
+      $params['street_address'] = "$streetNumber $streetName";
+    }
+    elseif ($streetName) {
+      $params['street_address'] = $streetName;
+    }
+
+    $params['postal_code'] = $this->getCellValue($this->colNum['postal_code'], $this->currentRow);
+    if (strlen($params['postal_code']) == 4) {
+      $params['postal_code'] = '0' . $params['postal_code'];
+    }
+
+    $params['state_province_id'] = $this->getStateProvinceId($params['postal_code']);
+
+    $params['city'] = $this->getCellValue($this->colNum['city'], $this->currentRow);
+    $params['country_id'] = 1076;
+
+    $sup1 = $this->getCellValue($this->colNum['supplemental_address_1'], $this->currentRow);
+    $sup2 = $this->getCellValue($this->colNum['supplemental_address_2'], $this->currentRow);
+    $sup3 = $this->getCellValue($this->colNum['supplemental_address_3'], $this->currentRow);
+
+    $i = 1;
+    if ($sup1) {
+      $params["supplemental_address_$i"] = $sup1;
+      $i++;
+    }
+
+    if ($sup2) {
+      $params["supplemental_address_$i"] = $sup2;
+      $i++;
+    }
+
+    if ($sup3) {
+      $params["supplemental_address_$i"] = $sup3;
+    }
+
+    return $params;
+  }
+
+  private function getStateProvinceId($postalCode) {
+    $stateId = '';
+
+    $postalCodePrefix = substr($postalCode, 0, 2);
+    if ($postalCodePrefix) {
+      if ($postalCodePrefix == '06') {
+        $stateId = 2502;
+      }
+      elseif ($postalCodePrefix == '75') {
+        $stateId = 2567;
+      }
+      else {
+        if ($postalCodePrefix == '20') {
+          $postalCodePrefix = substr($postalCode, 0, 3);
+        }
+
+        $stateId = CRM_Core_DAO::singleValueQuery("select id from civicrm_state_province where country_id = 1076 and abbreviation = '$postalCodePrefix'");
+      }
+    }
+
+    return $stateId;
+  }
+
+  private function currentRowGetMobilePhoneParams($contactId) {
+    $phone = $this->getCellValue($this->colNum['mobile_phone'], $this->currentRow);
+    if (empty($phone)) {
+      return FALSE;
+    }
+
+    $params = [];
+
+    $params['contact_id'] = $contactId;
+    $params['phone'] = $phone;
+    $params['location_type_id'] = 1;
+    $params['phone_type_id'] = 2;
+    $params['sequential'] = 1;
+
+    return $params;
+  }
+
+  private function currentRowGetHomePhoneParams($contactId) {
+    $phone = $this->getCellValue($this->colNum['home_phone'], $this->currentRow);
+    if (empty($phone)) {
+      return FALSE;
+    }
+
+    $params = [];
+
+    $params['contact_id'] = $contactId;
+    $params['phone'] = $phone;
+    $params['location_type_id'] = 1;
+    $params['phone_type_id'] = 1;
+    $params['sequential'] = 1;
+
+    return $params;
+  }
+
+  private function currentRowGetEmailParams($contactId) {
+    $email = $this->getCellValue($this->colNum['email'], $this->currentRow);
+    if (empty($phone)) {
+      return FALSE;
+    }
+
+    $params = [];
+
+    $params['contact_id'] = $contactId;
+    $params['email'] = $email;
+    $params['location_type_id'] = 1;
+    $params['sequential'] = 1;
 
     return $params;
   }
