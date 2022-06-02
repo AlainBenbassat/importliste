@@ -20,4 +20,13 @@ class ImportListeContact {
     $result = civicrm_api3('Email', 'create', $params);
     return $result['id'];
   }
+
+  public static function createTag($params) {
+    $result = civicrm_api3('Tag', 'create', $params);
+    return $result['id'];
+  }
+
+  public static function createCustomValue($params) {
+    $result = civicrm_api3('CustomValue', 'create', $params);
+  }
 }

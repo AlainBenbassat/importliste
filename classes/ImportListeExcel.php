@@ -1,6 +1,7 @@
 <?php
 
-require_once __DIR__ . '/ImportListeContact.php';
+require __DIR__ . '/ImportListeContact.php';
+require __DIR__ . '/ImportListeConfig.php';
 
 class ImportListeExcel {
   private $spreadsheet;
@@ -8,6 +9,12 @@ class ImportListeExcel {
   private $colHeaderMapping;
   private $totalRows = 0;
   private $currentRow = 2;
+  private $custom_value_id_code_bureau;
+  private $custom_value_id_libelle_bureau;
+  private $custom_value_id_numero_ordre;
+  private $custom_value_id_circonscription;
+  private $custom_value_id_code_canton;
+
 
   public function __construct() {
     $this->colHeaderMapping = [
@@ -17,6 +24,7 @@ class ImportListeExcel {
       "nom d'usage" => 'nick_name',
       'sexe' => 'gender',
       'date de naissance' => 'birth_date',
+      'PROFESSION' => 'job_title',
       'numéro de voie' => 'street_number',
       'libellé de voie' => 'street_name',
       'complément 1' => 'supplemental_address_1',
@@ -27,7 +35,20 @@ class ImportListeExcel {
       'PORTABLE' => 'mobile_phone',
       'FIXE' => 'home_phone',
       'MAIL' => 'email',
+      'CONTACT' => 'tag_contact',
+      'code du bureau de vote' => 'code_bureau',
+      'libellé du bureau de vote' => 'libelle_bureau',
+      "numéro d'ordre dans le bureau de vote" => 'numero_ordre',
+      'circonscription législative du bureau de vote' => 'circonscription',
+      'canton du bureau de vote' => 'canton',
     ];
+
+    $cf = new ImportListeConfig();
+    $this->custom_value_id_code_bureau = $cf->getCustomField_codeBureau()['id'];
+    $this->custom_value_id_libelle_bureau = $cf->getCustomField_libelleBureau()['id'];
+    $this->custom_value_id_numero_ordre = $cf->getCustomField_numOrdre()['id'];
+    $this->custom_value_id_circonscription = $cf->getCustomField_circonscription()['id'];
+    $this->custom_value_id_code_canton = $cf->getCustomField_canton()['id'];
   }
 
   public function import($fileName) {
@@ -49,6 +70,8 @@ class ImportListeExcel {
       $this->importLineMobilePhoneData($contactId);
       $this->importLineHomePhoneData($contactId);
       $this->importLineEmailData($contactId);
+      $this->importLineTagData($contactId);
+      $this->importLineBureauVoteData($contactId);
 
       $this->currentRow++;
     }
@@ -87,6 +110,40 @@ class ImportListeExcel {
     }
   }
 
+  private function importLineTagData($contactId) {
+    $tagParams = $this->currentRowGetTagParams($contactId);
+    if ($tagParams) {
+      ImportListeContact::createTag($tagParams);
+    }
+  }
+  
+  private function importLineBureauVoteData($contactId) {
+    $customFieldParams = $this->currentRowGetCustomFieldParams($contactId, 'code_bureau', $this->custom_value_id_code_bureau);
+    if ($customFieldParams) {
+      ImportListeContact::createCustomValue($customFieldParams);
+    }
+
+    $customFieldParams = $this->currentRowGetCustomFieldParams($contactId, 'libelle_bureau', $this->custom_value_id_libelle_bureau);
+    if ($customFieldParams) {
+      ImportListeContact::createCustomValue($customFieldParams);
+    }
+
+    $customFieldParams = $this->currentRowGetCustomFieldParams($contactId, 'numero_ordre', $this->custom_value_id_numero_ordre);
+    if ($customFieldParams) {
+      ImportListeContact::createCustomValue($customFieldParams);
+    }
+
+    $customFieldParams = $this->currentRowGetCustomFieldParams($contactId, 'circonscription', $this->custom_value_id_circonscription);
+    if ($customFieldParams) {
+      ImportListeContact::createCustomValue($customFieldParams);
+    }
+
+    $customFieldParams = $this->currentRowGetCustomFieldParams($contactId, 'canton', $this->custom_value_id_code_canton);
+    if ($customFieldParams) {
+      ImportListeContact::createCustomValue($customFieldParams);
+    }
+  }
+
   private function currentRowGetContactParams() {
     $params = [];
 
@@ -96,6 +153,7 @@ class ImportListeExcel {
     $params['first_name'] = $this->getCellValue($this->colNum['first_name'], $this->currentRow);
     $params['last_name'] = $this->getCellValue($this->colNum['last_name'], $this->currentRow);
     $params['nick_name'] = $this->getCellValue($this->colNum['nick_name'], $this->currentRow);
+    $params['job_title'] = $this->getCellValue($this->colNum['job_title'], $this->currentRow);
 
     $birthDate = $this->getCellValue($this->colNum['birth_date'], $this->currentRow);
     if ($birthDate) {
@@ -106,6 +164,21 @@ class ImportListeExcel {
     if ($gender) {
       $params['gender'] = $this->convertGenderToGenderId($gender);
     }
+
+    return $params;
+  }
+
+  private function currentRowGetCustomFieldParams($contactId, $colName, $customFieldId) {
+    $colVal = $this->getCellValue($this->colNum[$colName], $this->currentRow);
+    if (empty($colVal)) {
+      return FALSE;
+    }
+
+    $params = [];
+
+    $params['entity_id'] = $contactId;
+    $params["custom_$customFieldId"] = $colVal;
+    $params['sequential'] = 1;
 
     return $params;
   }
@@ -227,6 +300,22 @@ class ImportListeExcel {
     $params['contact_id'] = $contactId;
     $params['email'] = $email;
     $params['location_type_id'] = 1;
+    $params['sequential'] = 1;
+
+    return $params;
+  }
+
+  private function currentRowGetTagParams($contactId) {
+    $tag = $this->getCellValue($this->colNum['tag_contact'], $this->currentRow);
+    if (empty($tag)) {
+      return FALSE;
+    }
+
+    $params = [];
+
+    $params['entity_id'] = $contactId;
+    $params['entity_table'] = 'civicrm_contact';
+    $params['tag_id'] = 1;
     $params['sequential'] = 1;
 
     return $params;
