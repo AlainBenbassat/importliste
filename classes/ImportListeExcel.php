@@ -57,6 +57,7 @@ class ImportListeExcel {
     }
 
     $this->totalRows = $this->openExcelFile($fileName);
+
     $this->readColumnHeaders();
     $this->validateColumnHeaders();
     $this->importLines();
@@ -256,7 +257,7 @@ class ImportListeExcel {
   }
 
   private function currentRowGetMobilePhoneParams($contactId) {
-    $phone = $this->getCellValue($this->colNum['mobile_phone'], $this->currentRow);
+    $phone = $this->getCellValue($this->colNum['mobile_phone'], $this->currentRow, TRUE);
     if (empty($phone)) {
       return FALSE;
     }
@@ -273,7 +274,7 @@ class ImportListeExcel {
   }
 
   private function currentRowGetHomePhoneParams($contactId) {
-    $phone = $this->getCellValue($this->colNum['home_phone'], $this->currentRow);
+    $phone = $this->getCellValue($this->colNum['home_phone'], $this->currentRow, TRUE);
     if (empty($phone)) {
       return FALSE;
     }
@@ -291,7 +292,7 @@ class ImportListeExcel {
 
   private function currentRowGetEmailParams($contactId) {
     $email = $this->getCellValue($this->colNum['email'], $this->currentRow);
-    if (empty($phone)) {
+    if (empty($email)) {
       return FALSE;
     }
 
@@ -332,7 +333,7 @@ class ImportListeExcel {
 
   private function openExcelFile($fileName) {
     $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
-    $reader->setReadDataOnly(TRUE);
+    //$reader->setReadDataOnly(TRUE);
 
     $worksheetData = $reader->listWorksheetInfo($fileName);
     $reader->setLoadSheetsOnly($worksheetData[0]);
@@ -341,8 +342,17 @@ class ImportListeExcel {
     return $worksheetData[0]['totalRows'];
   }
 
-  private function getCellValue($col, $row) {
-    return $this->spreadsheet->getActiveSheet()->getCellByColumnAndRow($col, $row)->getValue();
+  private function getCellValue($col, $row, $formatted = FALSE) {
+    if ($formatted) {
+      return $this->spreadsheet->getActiveSheet()
+        ->getCellByColumnAndRow($col, $row)
+        ->getFormattedValue();
+    }
+    else {
+      return $this->spreadsheet->getActiveSheet()
+        ->getCellByColumnAndRow($col, $row)
+        ->getValue();
+    }
   }
 
   private function readColumnHeaders() {

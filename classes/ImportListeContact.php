@@ -22,8 +22,7 @@ class ImportListeContact {
   }
 
   public static function createTag($params) {
-    $result = civicrm_api3('Tag', 'create', $params);
-    return $result['id'];
+    $result = civicrm_api3('EntityTag', 'create', $params);
   }
 
   public static function createCustomValue($params) {
